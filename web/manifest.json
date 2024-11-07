@@ -1,6 +1,6 @@
 {
-    "name": "untitled",
-    "short_name": "untitled",
+    "name": "cola_espera_app",
+    "short_name": "cola_espera_app",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

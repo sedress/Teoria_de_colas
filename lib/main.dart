@@ -1,193 +1,185 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'queue_theory_model.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
-void main() {
-  runApp(QueueApp());
+void main() => runApp(MyApp());
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
 }
 
-class QueueApp extends StatelessWidget {
+class _MyAppState extends State<MyApp> {
+  bool _isDarkMode = true; // Variable para controlar el modo oscuro
+
+  void _toggleTheme() {
+    setState(() {
+      _isDarkMode = !_isDarkMode; // Alternar entre modo claro y oscuro
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Calculadora de Teoría de Colas',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: PantallaCalculadoraColas(),
+      title: 'Sistema de Colas',
+      theme: _isDarkMode
+          ? ThemeData.dark() // Modo oscuro
+          : ThemeData.light(), // Modo claro
+      home: SistemaColasScreen(toggleTheme: _toggleTheme, isDarkMode: _isDarkMode),
     );
   }
 }
 
-class PantallaCalculadoraColas extends StatefulWidget {
+class SistemaColasScreen extends StatefulWidget {
+  final Function toggleTheme;
+  final bool isDarkMode;
+
+  SistemaColasScreen({required this.toggleTheme, required this.isDarkMode});
+
   @override
-  _PantallaCalculadoraColasState createState() => _PantallaCalculadoraColasState();
+  _SistemaColasScreenState createState() => _SistemaColasScreenState();
 }
 
-class _PantallaCalculadoraColasState extends State<PantallaCalculadoraColas> {
-  final _controladorLlegada = TextEditingController();
-  final _controladorServicio = TextEditingController();
-  final _controladorEmpleados = TextEditingController();
-  QueueTheoryModel? _modeloColas;
+class _SistemaColasScreenState extends State<SistemaColasScreen> {
+  final _lambdaController = TextEditingController();
+  final _muController = TextEditingController();
+  final _nController = TextEditingController();
+  double _espera = 0.0;
+  double _utilizacion = 0.0;
+  double _probabilidadVacia = 0.0;
+  double _empleadosOptimos = 0.0;
+
+  List<Map<String, dynamic>> _graphData = [];
 
   void _calcular() {
-    setState(() {
-      double tasaLlegada = double.parse(_controladorLlegada.text);
-      double tasaServicio = double.parse(_controladorServicio.text);
-      int numeroEmpleados = int.parse(_controladorEmpleados.text);
-
-      _modeloColas = QueueTheoryModel(
-        tasaLlegada: tasaLlegada,
-        tasaServicio: tasaServicio,
-        numeroEmpleados: numeroEmpleados,
+    if (_lambdaController.text.isEmpty || _muController.text.isEmpty || _nController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Por favor, ingrese todos los valores.')),
       );
-    });
-  }
+      return;
+    }
 
-  void _mostrarGraficoTiempoEspera() {
-    if (_modeloColas != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => GraficoTiempoEspera(
-            tiempoEsperaPromedio: _modeloColas!.tiempoEsperaPromedio,
-          ),
-        ),
+    try {
+      final lambda = double.parse(_lambdaController.text);
+      final mu = double.parse(_muController.text);
+      final n = int.parse(_nController.text);
+
+      final tiempoEspera = 1 / (mu - lambda);
+      final utilizacion = lambda / (mu * n);
+      final probabilidadVacia = 1 - utilizacion;
+      final empleadosOptimos = lambda / mu;
+
+      setState(() {
+        _espera = tiempoEspera;
+        _utilizacion = utilizacion;
+        _probabilidadVacia = probabilidadVacia;
+        _empleadosOptimos = empleadosOptimos;
+
+        // Actualizamos los datos del gráfico
+        _graphData = [
+          {'name': 'Tiempo de Espera', 'value': _espera},
+          {'name': 'Tasa de Utilización', 'value': _utilizacion},
+          {'name': 'Probabilidad Vacía', 'value': _probabilidadVacia},
+          {'name': 'Empleados Óptimos', 'value': _empleadosOptimos},
+        ];
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error en los cálculos. Verifique los valores ingresados.')),
       );
     }
   }
 
+  Widget _buildMetricContainer(String label, double value) {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 8.0),
+      padding: EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey[900],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.white),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  value.toStringAsFixed(2),
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Calculadora de Teoría de Colas')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _controladorLlegada,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Tasa de Llegada (λ)'),
-            ),
-            TextField(
-              controller: _controladorServicio,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Tasa de Servicio (μ)'),
-            ),
-            TextField(
-              controller: _controladorEmpleados,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: 'Número de Empleados (n)'),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _calcular,
-              child: Text('Calcular'),
-            ),
-            SizedBox(height: 20),
-            if (_modeloColas != null) ...[
-              TarjetaResultado(
-                titulo: 'Tiempo Promedio de Espera',
-                valor: '${_modeloColas!.tiempoEsperaPromedio.toStringAsFixed(2)} mins',
+      appBar: AppBar(
+        title: Text('Sistema de Colas'),
+        actions: [
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),
+            onPressed: () => widget.toggleTheme(), // Llamamos a la función para alternar el tema
+          ),
+        ],
+      ),
+      body: SingleChildScrollView( // Hacemos la columna desplazable
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _lambdaController,
+                decoration: InputDecoration(labelText: 'Tasa de llegada (λ)'),
+                keyboardType: TextInputType.number,
               ),
-              TarjetaResultado(
-                titulo: 'Tasa de Utilización',
-                valor: '${(_modeloColas!.tasaUtilizacion * 100).toStringAsFixed(2)} %',
+              TextField(
+                controller: _muController,
+                decoration: InputDecoration(labelText: 'Tasa de servicio (μ)'),
+                keyboardType: TextInputType.number,
               ),
-              TarjetaResultado(
-                titulo: 'Probabilidad de Sistema Vacío',
-                valor: '${(_modeloColas!.probabilidadSistemaVacio * 100).toStringAsFixed(2)} %',
-              ),
-              TarjetaResultado(
-                titulo: 'Cantidad Óptima de Empleados',
-                valor: '${_modeloColas!.cantidadOptimaEmpleados}',
+              TextField(
+                controller: _nController,
+                decoration: InputDecoration(labelText: 'Número de empleados (n)'),
+                keyboardType: TextInputType.number,
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _mostrarGraficoTiempoEspera,
-                child: Text('Ver Gráfico de Tiempo de Espera'),
+                onPressed: _calcular,
+                child: Text('Calcular'),
               ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class TarjetaResultado extends StatelessWidget {
-  final String titulo;
-  final String valor;
-
-  TarjetaResultado({required this.titulo, required this.valor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Text(titulo),
-        trailing: Text(valor, style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-}
-
-class GraficoTiempoEspera extends StatelessWidget {
-  final double tiempoEsperaPromedio;
-
-  GraficoTiempoEspera({required this.tiempoEsperaPromedio});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Gráfico de Tiempo de Espera')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SizedBox(
-            height: 300,
-            width: 350,
-            child: LineChart(
-              LineChartData(
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: List.generate(
-                      10,
-                          (index) => FlSpot(index.toDouble(), tiempoEsperaPromedio * (index + 1)),
-                    ),
-                    isCurved: true,
-                    barWidth: 3,
-                    gradient: LinearGradient(
-                      colors: [Colors.blue, Colors.lightBlue],
-                    ),
-                    belowBarData: BarAreaData(show: false),
+              SizedBox(height: 20),
+              // Contenedor para cada resultado
+              _buildMetricContainer('Tiempo de Espera', _espera),
+              _buildMetricContainer('Tasa de Utilización', _utilizacion),
+              _buildMetricContainer('Probabilidad de Sistema Vacío', _probabilidadVacia),
+              _buildMetricContainer('Cantidad Óptima de Empleados', _empleadosOptimos),
+              SizedBox(height: 20),
+              // Gráfico de los resultados
+              SfCartesianChart(
+                primaryXAxis: CategoryAxis(),
+                series: <ChartSeries>[
+                  ColumnSeries<Map<String, dynamic>, String>(
+                    dataSource: _graphData,
+                    xValueMapper: (data, _) => data['name'],
+                    yValueMapper: (data, _) => data['value'],
                   ),
                 ],
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        return Text('${value.toStringAsFixed(1)} mins');
-                      },
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        return Text('T${value.toInt()}');
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: true),
-                gridData: FlGridData(show: true),
               ),
-            ),
+            ],
           ),
         ),
       ),
